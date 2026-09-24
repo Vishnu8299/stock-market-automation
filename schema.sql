@@ -1,9 +1,26 @@
--- M0 schema: securities, daily_prices (TimescaleDB hypertable),
+-- M0 schema: securities, daily_prices (optional TimescaleDB hypertable),
 -- corporate_actions, data_ingestion_runs.
--- Run once against a PostgreSQL database with the TimescaleDB extension
--- available: psql -d market_research -f schema.sql
+-- Run once against a PostgreSQL database:
+--   psql -d market_research -f schema.sql
+--
+-- TimescaleDB is optional: if the extension is available, daily_prices
+-- becomes a hypertable for fast range queries. On plain PostgreSQL, the
+-- same tables/constraints/indexes work correctly — hypertable is a
+-- performance optimization, not a correctness requirement.
+--
+-- UPDATED during M0.1.1 live validation:
+--   - securities UNIQUE changed from (symbol, exchange) to (symbol, series, exchange)
+--     because NSE lists the same symbol in multiple series (e.g. ENTERO in BL and EQ).
 
-CREATE EXTENSION IF NOT EXISTS timescaledb;
+-- Try to enable TimescaleDB; skip gracefully if not installed.
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS timescaledb;
+    RAISE NOTICE 'TimescaleDB extension enabled.';
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'TimescaleDB not available — running on plain PostgreSQL.';
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS securities (
     id            SERIAL PRIMARY KEY,
@@ -11,10 +28,10 @@ CREATE TABLE IF NOT EXISTS securities (
     exchange      TEXT NOT NULL DEFAULT 'NSE',
     isin          TEXT,
     company_name  TEXT,
-    series        TEXT,
+    series        TEXT NOT NULL DEFAULT 'EQ',
     active_from   DATE,
     active_to     DATE,
-    UNIQUE (symbol, exchange)
+    UNIQUE (symbol, series, exchange)
 );
 
 CREATE TABLE IF NOT EXISTS daily_prices (
@@ -32,9 +49,16 @@ CREATE TABLE IF NOT EXISTS daily_prices (
     PRIMARY KEY (security_id, trading_date)
 );
 
--- Partition by trading_date so range queries (backtesting over a date
--- window) stay fast as the table grows.
-SELECT create_hypertable('daily_prices', 'trading_date', if_not_exists => TRUE);
+-- If TimescaleDB is available, partition by trading_date so range
+-- queries (backtesting over a date window) stay fast as the table grows.
+DO $$
+BEGIN
+    PERFORM create_hypertable('daily_prices', 'trading_date', if_not_exists => TRUE);
+    RAISE NOTICE 'daily_prices converted to TimescaleDB hypertable.';
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Skipping hypertable creation (TimescaleDB not available).';
+END
+$$;
 
 -- raw prices are stored as reported; splits/bonuses are NOT applied here.
 -- Adjusted series belong in a separate research table once corporate

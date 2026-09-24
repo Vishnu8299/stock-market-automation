@@ -192,6 +192,12 @@ class NSEDataSource:
         out["trading_date"] = trading_date
         out["source"] = "NSE_CM_UDIFF"
 
+        # NSE doesn't always populate the SctySrs field — some non-equity
+        # instruments (bonds, debentures) have blank series.  Fill NaN with
+        # an empty string so the (symbol, series) key is hashable and
+        # consistent between upsert_securities() and insert_daily_prices().
+        out["series"] = out["series"].fillna("").astype(str).str.strip()
+
         numeric_cols = [
             "open", "high", "low", "close", "last_price",
             "previous_close", "volume", "traded_value",

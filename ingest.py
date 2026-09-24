@@ -75,11 +75,12 @@ def main() -> int:
         logger.warning(err)
 
     db_insert_success = False
+    insert_stats = None
     if not args.skip_db:
         try:
             engine = dbmod.get_engine()
             dbmod.upsert_securities(engine, result.clean_df)
-            dbmod.insert_daily_prices(engine, result.clean_df)
+            insert_stats = dbmod.insert_daily_prices(engine, result.clean_df)
             dbmod.log_ingestion_run(
                 engine,
                 source="NSE_CM_UDIFF",
@@ -89,6 +90,10 @@ def main() -> int:
                 status="PASS" if result.rows_rejected == 0 else "PARTIAL",
             )
             db_insert_success = True
+            logger.info(
+                "DB insert: %d inserted, %d skipped, %d errors",
+                insert_stats.inserted, insert_stats.skipped, insert_stats.db_errors,
+            )
         except Exception as e:
             logger.error("Database insert failed: %s", e)
     else:
@@ -111,6 +116,8 @@ def main() -> int:
         ohlc_violations=result.ohlc_violations,
         db_insert_success=db_insert_success,
         status=status,
+        rows_inserted=insert_stats.inserted if insert_stats else 0,
+        rows_skipped=insert_stats.skipped if insert_stats else 0,
     )
     print(report.render())
     return 0 if status == "PASS" else 1

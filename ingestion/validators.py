@@ -37,8 +37,10 @@ def validate(df: pd.DataFrame) -> ValidationResult:
     errors: List[str] = []
     working = df.copy()
 
-    # 1. Duplicates on (symbol, trading_date) — keep first occurrence.
-    dup_mask = working.duplicated(subset=["symbol", "trading_date"], keep="first")
+    # 1. Duplicates on (symbol, series, trading_date) — keep first occurrence.
+    #    Note: NSE legitimately lists the same symbol in different series
+    #    (e.g. ENTERO in both BL and EQ), so 'series' must be part of the key.
+    dup_mask = working.duplicated(subset=["symbol", "series", "trading_date"], keep="first")
     duplicates = int(dup_mask.sum())
     if duplicates:
         errors.append(f"{duplicates} duplicate (symbol, trading_date) rows dropped")
