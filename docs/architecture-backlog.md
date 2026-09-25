@@ -123,6 +123,38 @@ bootstrap; `download()` validates the response content.
 **Regression test:** `tests/test_nse_session.py` — must remain in the suite
 permanently.
 
+## 5. Corporate Action Architecture — M0.2.3 Hybrid (Locked)
+
+**Decision (Team Lead approved 2026-09-25):** Use **both** approaches:
+
+- **Adjusted research series** (pre-computed) for indicator/signal calculation (SMAs, RSI, etc.)
+- **Event-driven simulation** for portfolio accounting (shares, cost basis, cash flows)
+
+```
+Raw NSE prices (immutable)
+         │
+Corporate Action Event Log (versioned)
+         │
+    ┌────┴─────┐
+    │          │
+Adjusted   Event-driven
+ Series     Portfolio
+    │          │
+ Signals   Accounting
+```
+
+**Key rules:**
+- Raw prices are never modified (M0 rule preserved)
+- Dividend adjustment is configurable (default: OFF for SMA indicators)
+- Event log is versioned for reproducibility
+- `adjustment_status` metadata always present in DataInterface output
+
+**Schema additions:**
+- `corporate_actions` table expanded with structured fields per action type
+- `adjusted_prices` table for pre-computed indicator-safe series
+
+**Implementation:** `ingestion/corporate_actions.py`
+
 ---
 
 ## Changelog
@@ -133,4 +165,6 @@ permanently.
 | 2026-09-24 | Security identity locked           | Vishnu  |
 | 2026-09-24 | Security master deferred           | Vishnu  |
 | 2026-09-24 | No-coupling rule for backtest      | Vishnu  |
+
 | 2026-09-24 | Session bootstrap behavior noted   | Vishnu  |
+| 2026-09-25 | M0.2.3 Hybrid CA architecture      | Vishnu  |
