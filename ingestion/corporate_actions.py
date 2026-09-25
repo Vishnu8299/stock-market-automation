@@ -108,7 +108,16 @@ def compute_adjustment_factors(
     event_idx = 0
 
     for d in sorted_dates:
-        # Apply any events whose ex_date matches this date
+        # IMPORTANT: assign the factor FIRST, before processing events.
+        # On the ex_date, the price is already post-split/post-bonus,
+        # so the current cumulative factor (before this event's adjustment)
+        # is correct for this date.  The adjustment only affects dates
+        # strictly BEFORE the ex_date.
+        factors[d] = cumulative
+
+        # Then apply any events whose ex_date matches this date
+        # (these adjustments will affect all subsequent dates in the
+        # backward walk, i.e., dates before this one)
         while event_idx < len(relevant_events) and relevant_events[event_idx].ex_date == d:
             ev = relevant_events[event_idx]
 
@@ -143,8 +152,6 @@ def compute_adjustment_factors(
                         )
 
             event_idx += 1
-
-        factors[d] = cumulative
 
     return factors
 

@@ -110,14 +110,14 @@ class TestAdjustmentFactors:
 
         factors = compute_adjustment_factors(events, dates)
 
-        # Post-split dates: factor = 1.0
+        # Ex_date and after: factor = 1.0 (price is already post-split)
         for d in dates:
-            if d > split_date:
-                assert factors[d] == pytest.approx(1.0), f"Post-split {d} should be 1.0"
+            if d >= split_date:
+                assert factors[d] == pytest.approx(1.0), f"Ex_date or after {d} should be 1.0"
 
-        # Split date and before: factor = 1/5 = 0.2
+        # Before ex_date: factor = 1/5 = 0.2
         for d in dates:
-            if d <= split_date:
+            if d < split_date:
                 assert factors[d] == pytest.approx(0.2), f"Pre-split {d} should be 0.2"
 
     def test_bonus_factor(self):
@@ -136,7 +136,7 @@ class TestAdjustmentFactors:
         factors = compute_adjustment_factors(events, dates)
 
         for d in dates:
-            if d > bonus_date:
+            if d >= bonus_date:
                 assert factors[d] == pytest.approx(1.0)
             else:
                 assert factors[d] == pytest.approx(0.5)
@@ -179,7 +179,7 @@ class TestAdjustmentFactors:
 
         expected_factor = (close_price - 10.0) / close_price  # 0.98
         for d in dates:
-            if d <= div_date:
+            if d < div_date:
                 assert factors[d] == pytest.approx(expected_factor, rel=1e-6)
             else:
                 assert factors[d] == pytest.approx(1.0)
@@ -203,19 +203,19 @@ class TestAdjustmentFactors:
 
         factors = compute_adjustment_factors(events, dates)
 
-        # After both events: factor = 1.0
+        # On or after split ex_date: factor = 1.0
         for d in dates:
-            if d > split_date:
+            if d >= split_date:
                 assert factors[d] == pytest.approx(1.0)
 
-        # Between bonus and split: factor = 0.5 (split only)
+        # Between bonus_date (inclusive) and split: factor = 0.5 (split only)
         for d in dates:
-            if bonus_date < d <= split_date:
+            if bonus_date <= d < split_date:
                 assert factors[d] == pytest.approx(0.5)
 
-        # Before both: factor = 0.5 * 0.5 = 0.25
+        # Before both ex_dates: factor = 0.5 * 0.5 = 0.25
         for d in dates:
-            if d <= bonus_date:
+            if d < bonus_date:
                 assert factors[d] == pytest.approx(0.25)
 
 
@@ -242,12 +242,12 @@ class TestAdjustedPrices:
         assert "adjustment_factor" in result.columns
 
         # Pre-split adjusted close should be close * 0.2
-        pre = result[result["trading_date"] <= split_date]
+        pre = result[result["trading_date"] < split_date]
         for _, row in pre.iterrows():
             assert row["adj_close"] == pytest.approx(row["close"] * 0.2, rel=1e-3)
 
-        # Post-split adjusted close should equal raw close
-        post = result[result["trading_date"] > split_date]
+        # Ex_date and after: adjusted close should equal raw close
+        post = result[result["trading_date"] >= split_date]
         for _, row in post.iterrows():
             assert row["adj_close"] == pytest.approx(row["close"], rel=1e-3)
 
@@ -277,7 +277,7 @@ class TestAdjustedPrices:
         result = compute_adjusted_prices(df, events)
 
         # Pre-split: adj_volume should be volume / 0.2 = volume * 5
-        pre = result[result["trading_date"] <= df["trading_date"].iloc[5]]
+        pre = result[result["trading_date"] < df["trading_date"].iloc[5]]
         for _, row in pre.iterrows():
             expected = int(row["volume"] / 0.2)
             assert abs(row["adj_volume"] - expected) <= 1
