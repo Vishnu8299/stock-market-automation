@@ -193,8 +193,24 @@ class BenchmarkConfig:
     # Sizing
     trade_fraction: float = 0.95
 
-    # Cost model
-    cost_per_trade_pct: float = 0.001  # 0.1% round-trip
+    # Cost model — uses the existing PercentageCostModel from
+    # backtesting/core/costs.py.  Semantics (from source code):
+    #
+    #   cost = abs(price * quantity) * rate
+    #
+    # Applied on EACH EXECUTED FILL (BUY and SELL separately),
+    # not per round-trip.  A complete round-trip therefore incurs
+    # costs on both the entry fill and the exit fill.
+    #
+    # Example with rate=0.001 (0.1%):
+    #   BUY  100 shares @ ₹500 → cost = 500 * 100 * 0.001 = ₹50
+    #   SELL 100 shares @ ₹550 → cost = 550 * 100 * 0.001 = ₹55
+    #   Total round-trip cost = ₹105
+    #
+    # Cash accounting (from Portfolio.buy/sell):
+    #   buy:  cash -= (price * quantity + cost)
+    #   sell: cash += (price * quantity - cost)
+    cost_rate: float = 0.001  # 0.1% per fill (see PercentageCostModel)
 
     # Corporate action treatment
     adjusted: bool = True
@@ -214,23 +230,30 @@ class BenchmarkConfig:
 
 ## BuyAndHoldStrategy
 
+The existing `backtesting/strategies/buy_and_hold.py` already provides
+`BuyAndHold(SignalInterface)` which generates exactly one BUY signal on
+the first bar and HOLD on all others.
+
+**M0.2.4 must reuse this existing implementation**, not create a duplicate.
+The `ExecutionSimulator` handles fill, sizing, cost, and CA application.
+
 ```python
-class BuyAndHoldStrategy:
-    """Buy once on day 1, hold until the end.
-
-    Invariants:
-        - Exactly 1 BUY signal (on the first valid bar)
-        - 0 SELL signals during the holding period
-        - No repeated entries
-        - Position held until final bar
-    """
-
-    def run(self, df, initial_capital, trade_fraction, cost_pct, events=None):
-        # Buy on bar 0
-        # Hold until bar N
-        # Apply corporate action events (same as SMA)
-        # Report single trade
+# Existing code (backtesting/strategies/buy_and_hold.py):
+class BuyAndHold(SignalInterface):
+    def generate(self, data: pd.DataFrame) -> pd.DataFrame:
+        df = data.copy()
+        df["signal"] = Signal.HOLD
+        if len(df) > 0:
+            df.iloc[0, df.columns.get_loc("signal")] = Signal.BUY
+        return df
 ```
+
+**Invariants** (verified by tests, not asserted in the strategy code):
+- Exactly 1 BUY signal (on bar 0)
+- 0 SELL signals during the holding period
+- No repeated entries
+- Position held until final bar
+- Fill occurs at bar 1's open (next-bar execution, per ExecutionSimulator)
 
 ---
 
@@ -332,17 +355,77 @@ def test_deterministic_results():
 
 ### 4. Capital conservation
 
-```python
-def test_capital_conservation():
-    """For any run: initial_capital = final_cash + position_value + total_costs.
+Derived from the actual `Portfolio` implementation
+(`backtesting/core/portfolio.py`):
 
-    On a synthetic rising dataset with no costs, final value > initial.
-    The conservation law is:
-        initial = cash + market_value + cumulative_costs
+```python
+# Portfolio.buy() (line 76-83):
+#   cash -= (price * quantity + cost)
+#
+# Portfolio.sell() (line 134-135):
+#   cash += (price * quantity - cost)
+#
+# Portfolio.equity() (line 231-235):
+#   equity = cash + Σ(position.quantity × current_price)
+#
+# Therefore the accounting identity at any point in time is:
+#
+#   portfolio.equity(current_prices)
+#     == portfolio.initial_capital
+#        + Σ(unrealized_pnl)        # (current_price - avg_cost) × qty
+#        - Σ(all_costs)             # costs deducted on both BUY and SELL
+#
+# Equivalently, the simpler form that follows directly from the
+# cash-tracking logic:
+#
+#   cash + holdings_value + cumulative_costs_paid
+#     == initial_capital + cumulative_sale_proceeds_before_cost
+#        - cumulative_purchase_cost_before_cost
+#
+# The cleanest testable invariant is:
+#
+#   portfolio.equity(current_prices) + total_costs_paid
+#     == initial_capital + total_market_gain
+#
+# where total_market_gain = Σ(sell_price × qty) + holdings_value
+#                           - Σ(buy_price × qty)
+#
+# For the test, we use the direct Portfolio state:
+
+def test_capital_conservation():
+    """Verify: equity = cash + holdings_value accounts for all flows.
+
+    Source of truth: Portfolio.equity() from portfolio.py line 227-235.
+
+    At any bar, the following must hold:
+        portfolio.cash
+            + Σ(position.quantity × current_price)   [mark-to-market]
+            = portfolio.equity(current_prices)
+
+    And across the full simulation:
+        equity_final + total_costs_paid
+            = initial_capital + total_gross_market_gain
     """
-    result = strategy.run(synthetic_rising_data, ...)
-    assert result.final_cash + result.final_position_value + result.total_costs == \
-        pytest.approx(config.initial_capital + result.total_pnl)
+    portfolio = simulator.run(signal_df, symbol)
+
+    # Direct identity from Portfolio.equity()
+    final_equity = portfolio.equity({symbol: final_close})
+    total_costs = sum(t.cost for t in portfolio.trades)
+
+    # All cash that entered the system = initial_capital
+    # All cash that left as costs = total_costs
+    # Remaining = equity
+    # Therefore: equity + total_costs = initial_capital + market_gain
+    total_bought = sum(t.price * t.quantity for t in portfolio.trades if t.side == 'BUY')
+    total_sold = sum(t.price * t.quantity for t in portfolio.trades if t.side == 'SELL')
+    holdings_value = sum(
+        pos.quantity * final_close
+        for pos in portfolio.positions.values()
+    )
+
+    assert final_equity + total_costs == pytest.approx(
+        portfolio.initial_capital + (total_sold + holdings_value - total_bought)
+    )
 ```
 
 ### 5. Controlled-conditions enforcement
