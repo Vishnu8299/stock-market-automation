@@ -1,0 +1,47 @@
+======================================================================
+M0.2.1 — FIRST REAL-DATA EXPERIMENT
+======================================================================
+
+  Symbol:           RELIANCE
+  Period:           2021-09-27 --> 2026-09-24
+  Initial capital:  ₹100,000.00
+  Trade size:       10 shares per signal
+  Cost model:       0.1% flat per trade
+
+======================================================================
+  Metric                        A: SMA 50/200      B: Buy & Hold
+======================================================================
+
+  Final equity                    ₹100,015.36        ₹100,660.91
+  Total return                         +0.02%             +0.66%
+  CAGR                                 +0.00%             +0.13%
+  Sharpe ratio                           0.01               0.06
+  Max drawdown                         -3.29%             -4.21%
+
+  Total trades                              6                  1
+  Win rate                             33.33%              0.00%
+  Profit factor                          1.03               0.00
+
+======================================================================
+  VERDICT
+======================================================================
+  SMA 50/200 underperformed Buy & Hold by -0.64% total return.
+  SMA 50/200 had worse risk-adjusted return (Sharpe -0.05).
+  SMA 50/200 had a shallower max drawdown (better by +0.92pp).
+
+  NOTE: This is the RAW, UNOPTIMIZED result. No parameter tuning,
+  no walk-forward, no corporate-action adjustment. This is the
+  baseline truth before any optimization.
+======================================================================
+
+  SMA 50/200 TRADE LOG (6 fills):
+  Date           Side     Qty        Price       Cost          P&L
+  -------------- ------ ----- ------------ ---------- ------------
+  2022-12-14     BUY       10 ₹  1,217.28 ₹   12.17            —
+  2023-02-03     SELL      10 ₹  1,084.06 ₹   10.84   ₹-1,343.04
+  2023-06-27     BUY       10 ₹  1,152.16 ₹   11.52            —
+  2024-10-23     SELL      10 ₹  1,337.50 ₹   13.38    ₹1,840.02
+  2025-05-30     BUY       10 ₹  1,418.00 ₹   14.18            —
+  2026-03-09     SELL      10 ₹  1,375.00 ₹   13.75     ₹-443.75
+
+======================================================================

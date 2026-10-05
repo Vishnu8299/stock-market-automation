@@ -1,0 +1,107 @@
+{
+  "experiment": "M0.2.1",
+  "description": "First real-data experiment: unoptimized SMA 50/200 vs Buy-and-Hold",
+  "parameters": {
+    "initial_capital": 100000.0,
+    "trade_qty": 10,
+    "cost_rate": 0.001,
+    "fast_sma": 50,
+    "slow_sma": 200
+  },
+  "experiment_a": {
+    "strategy": "SMA_50_200",
+    "symbol": "RELIANCE",
+    "start_date": "2021-09-27",
+    "end_date": "2026-09-24",
+    "metrics": {
+      "total_return_pct": 0.02,
+      "cagr_pct": 0.0,
+      "sharpe_ratio": 0.01,
+      "max_drawdown_pct": -3.29,
+      "total_trades": 6,
+      "win_rate_pct": 33.33,
+      "profit_factor": 1.03,
+      "initial_capital": 100000.0,
+      "final_equity": 100015.36
+    },
+    "num_trades": 6,
+    "trades": [
+      {
+        "date": "2022-12-14",
+        "side": "BUY",
+        "quantity": 10,
+        "price": 1217.28,
+        "cost": 12.172799999999999,
+        "pnl": null
+      },
+      {
+        "date": "2023-02-03",
+        "side": "SELL",
+        "quantity": 10,
+        "price": 1084.06,
+        "cost": 10.840599999999998,
+        "pnl": -1343.0406000000003
+      },
+      {
+        "date": "2023-06-27",
+        "side": "BUY",
+        "quantity": 10,
+        "price": 1152.16,
+        "cost": 11.521600000000001,
+        "pnl": null
+      },
+      {
+        "date": "2024-10-23",
+        "side": "SELL",
+        "quantity": 10,
+        "price": 1337.5,
+        "cost": 13.375,
+        "pnl": 1840.0249999999992
+      },
+      {
+        "date": "2025-05-30",
+        "side": "BUY",
+        "quantity": 10,
+        "price": 1418.0,
+        "cost": 14.18,
+        "pnl": null
+      },
+      {
+        "date": "2026-03-09",
+        "side": "SELL",
+        "quantity": 10,
+        "price": 1375.0,
+        "cost": 13.75,
+        "pnl": -443.75
+      }
+    ]
+  },
+  "experiment_b": {
+    "strategy": "Buy_and_Hold",
+    "symbol": "RELIANCE",
+    "start_date": "2021-09-27",
+    "end_date": "2026-09-24",
+    "metrics": {
+      "total_return_pct": 0.66,
+      "cagr_pct": 0.13,
+      "sharpe_ratio": 0.06,
+      "max_drawdown_pct": -4.21,
+      "total_trades": 1,
+      "win_rate_pct": 0.0,
+      "profit_factor": 0.0,
+      "initial_capital": 100000.0,
+      "final_equity": 100660.91
+    },
+    "num_trades": 1,
+    "trades": [
+      {
+        "date": "2021-09-28",
+        "side": "BUY",
+        "quantity": 10,
+        "price": 1169.44,
+        "cost": 11.694400000000002,
+        "pnl": null
+      }
+    ]
+  }
+}
