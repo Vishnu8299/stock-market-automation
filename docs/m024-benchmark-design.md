@@ -17,7 +17,6 @@ The benchmark framework is a **consumer** of the existing backtesting engine.
 It does not rewrite the engine.
 
 ---
-
 ## Architecture
 
 ```
